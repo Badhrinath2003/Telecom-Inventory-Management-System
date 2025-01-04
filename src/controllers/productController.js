@@ -108,11 +108,74 @@ const searchProducts = async (req, res) => {
         res.status(500).json({ message: 'Error searching products', error: error.message });
     }
 };
+const stockIn = async (req, res) => {
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    try {
+        // Ensure quantity is a positive number
+        if (quantity <= 0) {
+            return res.status(400).json({ message: 'Quantity must be greater than zero' });
+        }
+
+        // Get the current stock level for the product
+        const [product] = await db.execute('SELECT stock_level FROM products WHERE p_id = ?', [id]);
+        
+        if (product.length === 0) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        // Increase stock level
+        const newStockLevel = product[0].stock_level + quantity;
+
+        // Update stock level in the database
+        await db.execute('UPDATE products SET stock_level = ? WHERE p_id = ?', [newStockLevel, id]);
+
+        res.json({ message: 'Stock added successfully', newStockLevel });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding stock', error: error.message });
+    }
+};
+const stockOut = async (req, res) => {
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    try {
+        // Ensure quantity is a positive number
+        if (quantity <= 0) {
+            return res.status(400).json({ message: 'Quantity must be greater than zero' });
+        }
+
+        // Get the current stock level for the product
+        const [product] = await db.execute('SELECT stock_level FROM products WHERE p_id = ?', [id]);
+
+        if (product.length === 0) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        // Ensure we don't reduce stock below 0
+        if (product[0].stock_level < quantity) {
+            return res.status(400).json({ message: 'Insufficient stock level' });
+        }
+
+        // Decrease stock level
+        const newStockLevel = product[0].stock_level - quantity;
+
+        // Update stock level in the database
+        await db.execute('UPDATE products SET stock_level = ? WHERE p_id = ?', [newStockLevel, id]);
+
+        res.json({ message: 'Stock reduced successfully', newStockLevel });
+    } catch (error) {
+        res.status(500).json({ message: 'Error reducing stock', error: error.message });
+    }
+};
 
 module.exports = {
     getAllProducts,
     addProduct,
     updateProduct,
     deleteProduct,
-    searchProducts
+    searchProducts,
+    stockIn,
+    stockOut
 };
